@@ -1,0 +1,64 @@
+﻿FUNCTION_BLOCK "cmPLCSystemTime"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_INPUT 
+      UTC : Bool;   // TRUE: PLC system time corresponds to UTC
+      setNewValue : Bool;   // Rising edge: Set PLC system time
+      newValue : Date_And_Time;   // Set value of new PLC system time
+   END_VAR
+
+   VAR_OUTPUT 
+      currentValue : Date_And_Time;   // Current value of PLC system time
+   END_VAR
+
+   VAR 
+      instR_TRIG_SetNewValue {InstructionName := 'R_TRIG'; LibVersion := '1.0'} : R_TRIG;   // Rising edge evaluation: Set PLC system time
+   END_VAR
+
+   VAR_TEMP 
+      tempReturnValue : Int;   // Return value of system function
+   END_VAR
+
+
+BEGIN
+	(*============================================================================================================
+	 Siemens AG
+	--------------------------------------------------------------------------------------------------------------
+	 Library:       ---
+	 Tested with:   S7-1511-1 PN V1.8
+	 Engineering:   TIA Portal V13 SP2
+	 Restrictions:  ---
+	 Requirements:  S7-1200 / S7-1500
+	 Functionality: Seting and reading of PLC system time
+	--------------------------------------------------------------------------------------------------------------
+	 Change log table:
+	 Version    Date          Expert in charge    Changes applied
+	 01.00.00   11.01.2018    MB                  First released version
+	============================================================================================================*)
+	
+	
+	// Set PLC system time
+	// => Only with rising edge of execute command
+	// => If the system time does not correspond to the UTC, must check first, whether summertime is active
+	#instR_TRIG_SetNewValue(CLK := #setNewValue);
+	IF #instR_TRIG_SetNewValue.Q THEN
+	  IF #UTC THEN
+	    #tempReturnValue := WR_SYS_T(#newValue);
+	  ELSE
+	    #tempReturnValue := RD_LOC_T(#currentValue);
+	    IF #tempReturnValue <= 1 THEN
+	      #tempReturnValue := WR_LOC_T(LOCTIME := #newValue,
+	                                   DST     := #tempReturnValue = 1);
+	    END_IF;
+	  END_IF;
+	END_IF;
+	
+	// Read current PLC system time
+	IF #UTC THEN
+	  #tempReturnValue := RD_SYS_T(#currentValue);
+	ELSE
+	  #tempReturnValue := RD_LOC_T(#currentValue);
+	END_IF;
+	
+END_FUNCTION_BLOCK
+
